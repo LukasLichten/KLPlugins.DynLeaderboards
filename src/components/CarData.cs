@@ -890,38 +890,5 @@ namespace KLPlugins.DynLeaderboards.Car {
                 return -1;
             }
         }
-
-        internal void SimHubUpdate(GameReaderCommon.GameData data, GameReaderCommon.Opponent opponent, CarData ahead)
-        {
-            TotalSplinePosition = opponent.CurrentLapHighPrecision.GetValueOrDefault();
-
-            GapToLeader = opponent.GaptoLeader;
-            GapToClassLeader = opponent.GaptoLeader;
-            GapToFocusedOnTrack = opponent.IsPlayer ? null : opponent.GaptoPlayer;
-            GapToFocusedTotal = GapToFocusedOnTrack;
-            //TODO car ahead
-
-            OverallPos = opponent.Position;
-            InClassPos = opponent.Position;
-
-            OldData = NewData;
-            NewData = new RealtimeCarUpdate()
-            {
-                BestSessionLap = ConvertTimeSpan(opponent.BestLapTime),
-                LastLap = ConvertTimeSpan(opponent.LastLapTime),
-                Laps = opponent.CurrentLap.GetValueOrDefault()-1,
-            };
-
-            
-
-            LapInfo ConvertTimeSpan(TimeSpan time)
-            {
-                return new LapInfo()
-                {
-                    IsInvalid = false,
-                    Laptime = time.TotalSeconds
-                };
-            }
-        }
     }
 }

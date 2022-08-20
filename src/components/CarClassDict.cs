@@ -4,7 +4,7 @@ namespace KLPlugins.DynLeaderboards.Car {
 
     internal class CarClassArray<T> {
         private const int _numClasses = 10;
-        private readonly T[] _data = new T[_numClasses];
+        private T[] _data = new T[_numClasses];
         public T DefaultValue { get; private set; }
 
         public CarClassArray(T defValue = default!) {
@@ -20,8 +20,17 @@ namespace KLPlugins.DynLeaderboards.Car {
         }
 
         public T this[CarClass key] {
-            get => this._data[(int)key];
-            set => this._data[(int)key] = value;
+            get {
+                if ((int)key < this._data.Length)
+                    return this._data[(int)key];
+                return this._data[9];
+            }
+            set
+            {
+                if ((int)key < this._data.Length)
+                    this._data[(int)key] = value;
+                this._data[9] = value;
+            }
         }
 
         public void Reset() {

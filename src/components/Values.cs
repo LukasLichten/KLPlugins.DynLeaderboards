@@ -438,23 +438,47 @@ namespace KLPlugins.DynLeaderboards {
                 }
             }
 
-            void ClearMissingCars() {
-                // Idea here is that realtime updates come as repeating loop of
-                // * Realtime update
-                // * RealtimeCarUpdate for each car
-                // Thus if we keep track of cars seen in the last loop, we can remove cars that have left the session
-                // However as we receive data as UDP packets, there is a possibility that some packets go missing
-                // Then we could possibly remove cars that are actually still in session
-                // Thus we keep track of how many times in order each car hasn't received the update
-                // If it's larger than some number, we remove the car
-                if (this._lastUpdateCarIds.Count != 0) {
-                    foreach (var car in this.Cars) {
-                        if (!this._lastUpdateCarIds.Contains(car.CarIndex)) {
-                            car.MissedRealtimeUpdates++;
-                        } else {
-                            car.MissedRealtimeUpdates = 0;
-                        }
+            void SetStartionOrder() {
+                Cars.Sort((a, b) => a.NewData.Position.CompareTo(b.NewData.Position)); // Spline position may give wrong results if cars are sitting on the grid, thus NewData.Position
+
+                var classPositions = new CarClassArray<int>(0); // Keep track of what class position are we at the moment
+                for (int i = 0; i < Cars.Count; i++) {
+                    var thisCar = Cars[i];
+                    var thisClass = thisCar.CarClass;
+                    var classPos = ++classPositions[thisClass];
+                    thisCar.SetStartingPositions(i + 1, classPos);
+                }
+                _startingPositionsSet = true;
+            }
+
+            #endregion Local functions
+        }
+
+        #region Former Local Functions
+
+        private void ClearMissingCars()
+        {
+            // Idea here is that realtime updates come as repeating loop of
+            // * Realtime update
+            // * RealtimeCarUpdate for each car
+            // Thus if we keep track of cars seen in the last loop, we can remove cars that have left the session
+            // However as we receive data as UDP packets, there is a possibility that some packets go missing
+            // Then we could possibly remove cars that are actually still in session
+            // Thus we keep track of how many times in order each car hasn't received the update
+            // If it's larger than some number, we remove the car
+            if (_lastUpdateCarIds.Count != 0)
+            {
+                foreach (var car in Cars)
+                {
+                    if (!_lastUpdateCarIds.Contains(car.CarIndex))
+                    {
+                        car.MissedRealtimeUpdates++;
                     }
+                    else
+                    {
+                        car.MissedRealtimeUpdates = 0;
+                    }
+                }
 
                     // Also don't remove cars that have finished as we want to freeze the results after finish
                     var numRemovedCars = this.Cars.RemoveAll(x => x.MissedRealtimeUpdates > 10 && !x.IsFinished);
@@ -473,57 +497,69 @@ namespace KLPlugins.DynLeaderboards {
                             return 0;
                         }
 
-                        // Sort cars that have crossed the start line always in front of cars who haven't
-                        if (a.HasCrossedStartLine && !b.HasCrossedStartLine) {
-                            return -1;
-                        } else if (b.HasCrossedStartLine && !a.HasCrossedStartLine) {
-                            return 1;
-                        }
+                    // Sort cars that have crossed the start line always in front of cars who haven't
+                    if (a.HasCrossedStartLine && !b.HasCrossedStartLine)
+                    {
+                        return -1;
+                    }
+                    else if (b.HasCrossedStartLine && !a.HasCrossedStartLine)
+                    {
+                        return 1;
+                    }
 
-                        // Always compare by laps first
-                        var alaps = a.NewData.Laps;
-                        var blaps = b.NewData.Laps;
-                        if (alaps != blaps) {
-                            return blaps.CompareTo(alaps);
-                        }
+                    // Always compare by laps first
+                    var alaps = a.NewData.Laps;
+                    var blaps = b.NewData.Laps;
+                    if (alaps != blaps)
+                    {
+                        return blaps.CompareTo(alaps);
+                    }
 
-                        // Keep order if one of the cars has offset lap update, could cause jumping otherwise
-                        if (a.OffsetLapUpdate != 0 || b.OffsetLapUpdate != 0) {
-                            return a.OverallPos.CompareTo(b.OverallPos);
-                        }
+                    // Keep order if one of the cars has offset lap update, could cause jumping otherwise
+                    if (a.OffsetLapUpdate != 0 || b.OffsetLapUpdate != 0)
+                    {
+                        return a.OverallPos.CompareTo(b.OverallPos);
+                    }
 
-                        // If car jumped to the pits we need to but it behind everyone on that same lap, but it's okay for the finished car to jump to the pits
-                        if (a.JumpedToPits && !b.JumpedToPits && !a.IsFinished) {
-                            return 1;
-                        }
-                        if (b.JumpedToPits && !a.JumpedToPits && !b.IsFinished) {
-                            return -1;
-                        }
+                    // If car jumped to the pits we need to but it behind everyone on that same lap, but it's okay for the finished car to jump to the pits
+                    if (a.JumpedToPits && !b.JumpedToPits && !a.IsFinished)
+                    {
+                        return 1;
+                    }
+                    if (b.JumpedToPits && !a.JumpedToPits && !b.IsFinished)
+                    {
+                        return -1;
+                    }
 
-                        if (a.IsFinalRealtimeCarUpdateAdded || b.IsFinalRealtimeCarUpdateAdded) {
-                            // We cannot use NewData.Position to set results after finish because, if someone finished and leaves the server then the positions of the guys behind him would be wrong by one.
-                            // Need to use FinishTime
-                            if (!a.IsFinalRealtimeCarUpdateAdded || !b.IsFinalRealtimeCarUpdateAdded) {
-                                // If one hasn't finished and their number of laps is same, that means that the car who has finished must be lap down.
-                                // Thus it should be behind the one who hasn't finished.
-                                var aFTime = a.FinishTime == null ? TimeSpan.MinValue.TotalSeconds : ((TimeSpan)a.FinishTime).TotalSeconds;
-                                var bFTime = b.FinishTime == null ? TimeSpan.MinValue.TotalSeconds : ((TimeSpan)b.FinishTime).TotalSeconds;
-                                return aFTime.CompareTo(bFTime);
-                            } else {
-                                // Both cars have finished
-                                var aFTime = a.FinishTime == null ? TimeSpan.MaxValue.TotalSeconds : ((TimeSpan)a.FinishTime).TotalSeconds;
-                                var bFTime = b.FinishTime == null ? TimeSpan.MaxValue.TotalSeconds : ((TimeSpan)b.FinishTime).TotalSeconds;
-                                return aFTime.CompareTo(bFTime);
-                            }
+                    if (a.IsFinalRealtimeCarUpdateAdded || b.IsFinalRealtimeCarUpdateAdded)
+                    {
+                        // We cannot use NewData.Position to set results after finish because, if someone finished and leaves the server then the positions of the guys behind him would be wrong by one.
+                        // Need to use FinishTime
+                        if (!a.IsFinalRealtimeCarUpdateAdded || !b.IsFinalRealtimeCarUpdateAdded)
+                        {
+                            // If one hasn't finished and their number of laps is same, that means that the car who has finished must be lap down.
+                            // Thus it should be behind the one who hasn't finished.
+                            var aFTime = a.FinishTime == null ? TimeSpan.MinValue.TotalSeconds : ((TimeSpan)a.FinishTime).TotalSeconds;
+                            var bFTime = b.FinishTime == null ? TimeSpan.MinValue.TotalSeconds : ((TimeSpan)b.FinishTime).TotalSeconds;
+                            return aFTime.CompareTo(bFTime);
                         }
+                        else
+                        {
+                            // Both cars have finished
+                            var aFTime = a.FinishTime == null ? TimeSpan.MaxValue.TotalSeconds : ((TimeSpan)a.FinishTime).TotalSeconds;
+                            var bFTime = b.FinishTime == null ? TimeSpan.MaxValue.TotalSeconds : ((TimeSpan)b.FinishTime).TotalSeconds;
+                            return aFTime.CompareTo(bFTime);
+                        }
+                    }
 
-                        // Keep order, make sort stable, fixes jumping
-                        if (a.TotalSplinePosition == b.TotalSplinePosition) {
-                            return a.OverallPos.CompareTo(b.OverallPos);
-                            ;
-                        }
-                        return b.TotalSplinePosition.CompareTo(a.TotalSplinePosition);
-                    };
+                    // Keep order, make sort stable, fixes jumping
+                    if (a.TotalSplinePosition == b.TotalSplinePosition)
+                    {
+                        return a.OverallPos.CompareTo(b.OverallPos);
+                        ;
+                    }
+                    return b.TotalSplinePosition.CompareTo(a.TotalSplinePosition);
+                };
 
                     this.Cars.Sort(cmp);
                 } else {
@@ -533,8 +569,8 @@ namespace KLPlugins.DynLeaderboards {
                             return 0;
                         }
 
-                        var apos = a.NewData?.Position ?? 1000;
-                        var bpos = b.NewData?.Position ?? 1000;
+                        var apos = a?.NewData?.Position ?? 1000;
+                        var bpos = b?.NewData?.Position ?? 1000;
                         if (apos == bpos) { // Make sort stable, fixes jumping
                             return a.OverallPos.CompareTo(b.OverallPos);
                         }
@@ -642,7 +678,8 @@ namespace KLPlugins.DynLeaderboards {
                         overallBestLapCar: overallBestLapCarIdx != null ? this.Cars[(int)overallBestLapCarIdx] : null,
                         classBestLapCar: classBestLapCarIdx != null ? this.Cars[(int)classBestLapCarIdx] : null,
                         overallPos: idxInCars + 1,
-                        classPos: thisCarClassPos
+                        classPos: thisCarClassPos,
+                        SessionTimeLeft: this.SessionTimeRemaining
                     );
                     lastSeenInClassCarIdxs[thisCar.CarClass] = idxInCars;
                 }
@@ -650,12 +687,12 @@ namespace KLPlugins.DynLeaderboards {
                     ClearUnusedClassPositions(classPositions[focusedClass], this.PosInClassCarsIdxs);
                 }
 
-                SetRelativeOnTrackOrders();
+            SetRelativeOnTrackOrders();
 
-                #region Local functions
+            #region Local functions
 
                 void UpdateBestLapCarIdxs(CarData thisCar, int idxInCars) {
-                    var thisCarBestLap = thisCar.NewData?.BestSessionLap.Laptime;
+                    var thisCarBestLap = thisCar.NewData?.BestSessionLap?.Laptime;
                     if (thisCarBestLap != null) {
                         UpdateBestLap(thisCar.CarClass);
                         UpdateBestLap(CarClass.Overall);
@@ -780,11 +817,150 @@ namespace KLPlugins.DynLeaderboards {
         internal void ProcessViaSimHub(GameData data)
         {
             FocusedCarIdx = data.NewData.Position - 1;
-            Cars.Clear();
 
-            CarData ahead = null;
+            RealtimeUpdate realtimeUpdate = new RealtimeUpdate()
+            {
+                BestLapCarIndex = 0,
+                BestSessionLap = null,
+                BestLapDriverIndex = 0,
+                FocusedCarIndex = (ushort)data.NewData.PlayerName?.GetHashCode(),
+                EventIndex = 0,
+                SessionIndex = 0,
+                IsReplayPlaying = false,
+                Phase = SessionPhase.Session,
+                RemainingTime = data.NewData.SessionTimeLeft,
+                SessionRemainingTime = data.NewData.SessionTimeLeft,
+                SessionType = RaceSessionType.Practice,
+                AmbientTemp = (byte)data.NewData.AirTemperature,
+                TrackTemp = (byte)data.NewData.RoadTemperature,
+                
+            };
 
+            Opponent fastBoi = data.NewData.BestLapOpponent;
+            if (fastBoi != null)
+            {
+                realtimeUpdate.BestLapCarIndex = (ushort)data.NewData.BestLapOpponent.Name.GetHashCode();
+                realtimeUpdate.BestSessionLap = ConvertTimeSpan(data.NewData.BestLapOpponent.BestLapTime);
+            }
+            
+
+            string sessionType = data.NewData.SessionTypeName;
+            if (sessionType != null)
+            {
+                sessionType = sessionType.Trim().ToLower();
+
+                switch (sessionType)
+                {
+                    case "race":
+                        realtimeUpdate.SessionType = RaceSessionType.Race;
+                        break;
+                    case "qualy":
+                    case "qualifying":
+                        realtimeUpdate.SessionType = RaceSessionType.Qualifying;
+                        break;
+                    case "hotlap":
+                        realtimeUpdate.SessionType = RaceSessionType.Hotlap;
+                        break;
+                    case "practice":
+                        realtimeUpdate.SessionType = RaceSessionType.Practice;
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            if (RealtimeData == null)
+            {
+                RealtimeData = new RealtimeData(realtimeUpdate);
+                return;
+            }
+            else
+            {
+                RealtimeData.OnRealtimeUpdate(realtimeUpdate);
+            }
+
+            if (RealtimeData.IsNewSession)
+            {
+                DynLeaderboardsPlugin.LogInfo("New session.");
+                Cars.Clear();
+                ResetPos();
+                _lastUpdateCarIds.Clear();
+                _relativeSplinePositions.Clear();
+                _startingPositionsSet = false;
+                SessionTimeRemaining = int.MaxValue;
+            }
+
+            //Processing all opponents
             foreach (var opponent in data.NewData.Opponents)
+            {
+                CarData carData = Cars.Find(x => x.CarIndex == (ushort)opponent.Name.GetHashCode() && x.CurrentDriver.ShortName == opponent.Initials);
+
+                string carName = opponent.CarName;
+                int number = 0;
+                if (Int32.TryParse(opponent.CarNumber.Replace('#', ' ').Trim(), out int startNumber))
+                    number = startNumber;
+
+                //Making sure we don't need to throw the data out
+                if (carData != null && (carData.TeamName != carName || carData.RaceNumber != number))
+                {
+                    //Car was changed, we throw out the old one and create a new one
+                    Cars.Remove(carData);
+                    carData = null;
+                }
+                
+                //TODO compensate for driverswaps
+
+                if (carData == null)
+                {
+                    carData = MakeNewOpponent(opponent);
+                }
+
+                RealtimeCarUpdate realtimeCarUpdate = new RealtimeCarUpdate()
+                {
+                    CarIndex = carData.CarIndex,
+                    BestSessionLap = ConvertTimeSpan(opponent.BestLapTime),
+                    CurrentLap = null,
+                    Delta = 0,
+                    CarLocation = opponent.IsCarInPitLane ? CarLocationEnum.Pitlane : CarLocationEnum.Track,
+                    CupPosition = (ushort)opponent.Position,
+                    DriverCount = 1,
+                    DriverIndex = 0,
+                    Gear = 0,
+                    Laps = opponent.CurrentLap.GetValueOrDefault() - 1,
+                    LastLap = ConvertTimeSpan(opponent.LastLapTime),
+                    Position = opponent.Position,
+                    SplinePosition = opponent.TrackPositionPercent.GetValueOrDefault(0.0),
+                    TrackPosition = 0,
+                    Yaw = 0,
+                    WorldPosX = 0,
+                    WorldPosY = 0,
+                };
+
+                double speed = opponent.Speed != null && opponent.Speed != Double.NaN ? (double)opponent.Speed : 0;
+                realtimeCarUpdate.Kmh = (int)(data.NewData.SpeedLocalUnit == "Kmh" ? speed : speed * 1.61);
+
+                var arr = opponent.Coordinates;
+                if (arr != null && arr.Length == 3)
+                {
+                    realtimeCarUpdate.WorldPosX = (ushort)arr[0];
+                    realtimeCarUpdate.WorldPosY = (ushort)arr[2];
+                }
+
+                carData.MissedRealtimeUpdates = 0; //This is to prevent clean up from deleting this one
+
+                carData.OnRealtimeCarUpdate(realtimeCarUpdate, RealtimeData);
+            }
+
+            if (Cars.Count == 0)
+                return;
+
+            ClearMissingCars();
+
+            SetOverallOrder();
+            SetRelativeOrders();
+            UpdateCarData();
+
+            CarData MakeNewOpponent(Opponent opponent)
             {
                 CarInfo info = new CarInfo((ushort)opponent.Name.GetHashCode())
                 {
@@ -797,14 +973,14 @@ namespace KLPlugins.DynLeaderboards {
                     TeamName = opponent.CarName,
                 };
 
-                if (Int32.TryParse(opponent.CarNumber.Replace('#',' ').Trim(), out int startNumber))
+                if (Int32.TryParse(opponent.CarNumber.Replace('#', ' ').Trim(), out int startNumber))
                     info.RaceNumber = startNumber;
 
                 string name = opponent.Name + ' ';
 
                 info.AddDriver(new DriverInfo()
                 {
-                    FirstName = name.Substring(0,name.IndexOf(' ')).Trim(),
+                    FirstName = name.Substring(0, name.IndexOf(' ')).Trim(),
                     LastName = name.Substring(name.IndexOf(' ') + 1).Trim(),
                     Category = DriverCategory.Platinum,
                     Nationality = NationalityEnum.Any,
@@ -812,14 +988,20 @@ namespace KLPlugins.DynLeaderboards {
                 });
 
                 CarData carData = new CarData(info, null);
-                carData.SimHubUpdate(data, opponent, ahead);
-
                 Cars.Add(carData);
 
-                ahead = carData;
+                return carData;
             }
 
-            SetRelativeOrders();
+            LapInfo ConvertTimeSpan(TimeSpan time)
+            {
+                return new LapInfo()
+                {
+                    IsInvalid = false,
+                    Laptime = time.TotalSeconds,
+                    DriverIndex = 0,
+                };
+            }
         }
 
         #endregion
