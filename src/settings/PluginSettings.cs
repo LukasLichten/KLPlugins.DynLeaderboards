@@ -15,6 +15,7 @@ namespace KLPlugins.DynLeaderboards.Settings {
         public int Version { get; set; } = 1;
         public string AccDataLocation { get; set; }
         public bool Log { get; set; }
+        public bool OtherGames { get; set; }
         public int BroadcastDataUpdateRateMs { get; set; }
         public OutGeneralProp OutGeneralProps = OutGeneralProp.None;
         public Dictionary<CarClass, string> CarClassColors { get; set; }
@@ -139,7 +140,7 @@ namespace KLPlugins.DynLeaderboards.Settings {
         }
 
         private static Dictionary<CarClass, string> CreateDefCarClassColors() {
-            var carClassColors = new Dictionary<CarClass, string>(8);
+            var carClassColors = new Dictionary<CarClass, string>(10);
             foreach (var c in Enum.GetValues(typeof(CarClass))) {
                 var cls = (CarClass)c;
                 carClassColors.Add(cls, cls.ACCColor());

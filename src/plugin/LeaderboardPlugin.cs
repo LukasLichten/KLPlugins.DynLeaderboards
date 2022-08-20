@@ -51,20 +51,38 @@ namespace KLPlugins.DynLeaderboards {
         /// <param name="pluginManager"></param>
         /// <param name="data"></param>
         public void DataUpdate(PluginManager pm, ref GameData data) {
-            if (!Game.IsAcc) { return; } // Atm only ACC is supported
 #if TIMINGS
             var timer = _timers?.AddAndRestart("DataUpdate");
 #endif
 
             if (data.GameRunning && data.OldData != null && data.NewData != null) {
-                this._values.OnDataUpdate(pm, data);
+                if (Game.IsAcc) {
+                    //WriteFrameTimes(pm);
+                    _values.OnDataUpdate(pm, data);
+                } else if (Settings.OtherGames) {
+                    _values.ProcessViaSimHub(data);
+                }
             }
+
 #if TIMINGS
             timer?.StopAndWriteMicros();
             if (data.GameRunning && data.OldData != null && data.NewData != null) {
                 this.WriteFrameTimes(pm);
             }
 #endif
+
+        }
+
+        private void WriteFrameTimes(PluginManager pm) {
+            var ftime = (double)pm.GetPropertyValue<SimHub.Plugins.DataPlugins.DataCore.DataCorePlugin>("Performance_FrameDuration");
+            var cached = (double)pm.GetPropertyValue<SimHub.Plugins.DataPlugins.DataCore.DataCorePlugin>("Performance_CachedFormulasPerSecond");
+            var jsFormulas = (double)pm.GetPropertyValue<SimHub.Plugins.DataPlugins.DataCore.DataCorePlugin>("Performance_JSFormulasPerSecond");
+            var NALCFormulas = (double)pm.GetPropertyValue<SimHub.Plugins.DataPlugins.DataCore.DataCorePlugin>("Performance_NALCFormulasPerSecond");
+            var NALCOptFormulas = (double)pm.GetPropertyValue<SimHub.Plugins.DataPlugins.DataCore.DataCorePlugin>("Performance_NALCOptimizedFormulasPerSecond");
+
+            if (_timingWriter != null) {
+                _timingWriter.WriteLine($"{ftime};{cached};{jsFormulas};{NALCFormulas};{NALCOptFormulas}");
+            }
         }
 
         /// <summary>
@@ -132,6 +150,11 @@ namespace KLPlugins.DynLeaderboards {
             InitTimings();
 #endif
             Game = new Game(gameName);
+            
+            //var timingFName = $"{Settings.PluginDataLocation}\\Logs\\timings\\frametime\\{PluginStartTime}.txt";
+            //Directory.CreateDirectory(Path.GetDirectoryName(timingFName));
+            //_timingFile = File.Create(timingFName);
+            //_timingWriter = new StreamWriter(_timingFile);
 
             PManager = pluginManager;
 
@@ -145,9 +168,8 @@ namespace KLPlugins.DynLeaderboards {
             }
             // _values is needed by SettingsControl on first time initialization, even if the game is not ACC
             this._values = new Values();
-            if (!Game.IsAcc) {
+            if (!Game.IsAcc && !Settings.OtherGames)
                 return;
-            }
 
             this.SubscribeToSimHubEvents();
             this.AttachGeneralDelegates();

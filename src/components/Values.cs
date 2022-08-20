@@ -177,7 +177,7 @@ namespace KLPlugins.DynLeaderboards {
         #endregion IDisposable Support
 
         internal void OnDataUpdate(PluginManager _, GameData data) {
-            this.RawData = (ACCRawData)data.NewData.GetRawDataObject();
+            this.RawData = data.NewData.GetRawDataObject() as ACCRawData;
             this.SessionTimeRemaining = this.RawData.Graphics.SessionTimeLeft / 1000.0f;
         }
 
@@ -187,7 +187,9 @@ namespace KLPlugins.DynLeaderboards {
                     DynLeaderboardsPlugin.LogWarn("Broadcast client wasn't 'null' at start of new event. Shouldn't be possible, there is a bug in disposing of Broadcast client from previous session.");
                     this.DisposeBroadcastClient();
                 }
-                this.ConnectToBroadcastClient();
+
+                if (DynLeaderboardsPlugin.Game.IsAcc)
+                    this.ConnectToBroadcastClient();
             } else {
                 this.Reset();
             }
@@ -727,5 +729,54 @@ namespace KLPlugins.DynLeaderboards {
         }
 
         #endregion Broadcast client connection
+
+        #region Other Game Support
+
+        internal void ProcessViaSimHub(GameData data)
+        {
+            FocusedCarIdx = data.NewData.Position;
+            Cars.Clear();
+
+            CarData ahead = null;
+
+            foreach (var opponent in data.NewData.Opponents)
+            {
+                CarInfo info = new CarInfo((ushort)opponent.Name.GetHashCode())
+                {
+                    CarClass = CarClass.Unknown,
+                    CarModelType = CarType.Unknown,
+                    CupCategory = TeamCupCategory.Overall,
+                    CurrentDriverIndex = 0,
+                    RaceNumber = 0,
+                    Nationality = NationalityEnum.Any,
+                    TeamName = opponent.CarName,
+                };
+
+                if (Int32.TryParse(opponent.CarNumber.Replace('#',' ').Trim(), out int startNumber))
+                    info.RaceNumber = startNumber;
+
+                string name = opponent.Name + ' ';
+
+                info.AddDriver(new DriverInfo()
+                {
+                    FirstName = name.Substring(0,name.IndexOf(' ')).Trim(),
+                    LastName = name.Substring(name.IndexOf(' ') + 1).Trim(),
+                    Category = DriverCategory.Platinum,
+                    Nationality = NationalityEnum.Any,
+                    ShortName = opponent.Initials
+                });
+
+                CarData carData = new CarData(info, null);
+                carData.SimHubUpdate(data, opponent, ahead);
+
+                Cars.Add(carData);
+
+                ahead = carData;
+            }
+
+            SetRelativeOrders();
+        }
+
+        #endregion
     }
 }

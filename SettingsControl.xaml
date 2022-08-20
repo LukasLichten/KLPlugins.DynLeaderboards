@@ -142,6 +142,24 @@
                 </Grid>
                 <Separator />
 
+                <!-- Other Game Support -->
+                <Grid ToolTip="Experimental Support for other games through SimHubs build in methods">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition MaxWidth="500" />
+                            <ColumnDefinition MinWidth="100" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition MinHeight="35" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="Other Games Support: " Style="{StaticResource Description}" />
+                        <styles:SHToggleButton Grid.Column="1" x:Name="OtherGames_ToggleButton"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           Click="OtherGames_ToggleButton_Click" />
+                </Grid>
+                <Separator />
+
                 <styles:SHSectionTitle Text="EXPOSED PROPERTIES" />
                 <StackPanel x:Name="OtherProperties_StackPanel">
                 </StackPanel>
