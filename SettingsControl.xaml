@@ -123,6 +123,24 @@
                 </Grid>
                 <Separator />
 
+                <!-- Other Game Support -->
+                <Grid ToolTip="When doing a DriverSwap race, once you are no longer in the car SimHub will no longer get Data, therefore set the game to not running, which stops the Leaderboard. This makes the Leaderboard poll as long as ACC is running">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition MaxWidth="500" />
+                            <ColumnDefinition MinWidth="100" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition MinHeight="35" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="ACC DriverSwap Fix: " Style="{StaticResource Description}" />
+                        <styles:SHToggleButton Grid.Column="1" x:Name="KeepPolling_ToggleButton"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           Click="KeepPolling_ToggleButton_Click" />
+                </Grid>
+                <Separator />
+
                 <!-- Enable logging -->
 
                 <Grid ToolTip="Enable or disable information logging. Errors will still be logged.">

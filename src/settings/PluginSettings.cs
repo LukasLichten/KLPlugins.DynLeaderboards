@@ -16,6 +16,7 @@ namespace KLPlugins.DynLeaderboards.Settings {
         public string AccDataLocation { get; set; }
         public bool Log { get; set; }
         public bool OtherGames { get; set; }
+        public bool KeepPolling { get; set; }
         public int BroadcastDataUpdateRateMs { get; set; }
         public OutGeneralProp OutGeneralProps = OutGeneralProp.None;
         public Dictionary<CarClass, string> CarClassColors { get; set; }

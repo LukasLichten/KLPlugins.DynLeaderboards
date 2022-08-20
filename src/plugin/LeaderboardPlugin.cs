@@ -54,6 +54,10 @@ namespace KLPlugins.DynLeaderboards {
 #if TIMINGS
             var timer = _timers?.AddAndRestart("DataUpdate");
 #endif
+            if (Settings.KeepPolling && Game.IsAcc) {
+                _values.CheckBroadcastClient(pm);
+            }
+
 
             if (data.GameRunning && data.OldData != null && data.NewData != null) {
                 if (Game.IsAcc) {
@@ -200,7 +204,9 @@ namespace KLPlugins.DynLeaderboards {
         }
 
         private void SubscribeToSimHubEvents() {
-            PManager.GameStateChanged += this._values.OnGameStateChanged;
+            if (!Settings.KeepPolling)
+                PManager.GameStateChanged += this._values.OnGameStateChanged;
+
             PManager.GameStateChanged += (bool running, PluginManager _) => {
                 LogInfo($"GameStateChanged to {running}");
                 if (!running) {

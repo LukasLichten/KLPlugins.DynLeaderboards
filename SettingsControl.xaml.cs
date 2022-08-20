@@ -58,6 +58,7 @@ namespace KLPlugins.DynLeaderboards.Settings {
             this.AccDataLocation_TextBox.Background = Brushes.LightGreen;
             this.Logging_ToggleButton.IsChecked = this.Settings.Log;
             this.OtherGames_ToggleButton.IsChecked = this.Settings.OtherGames;
+            this.KeepPolling_ToggleButton.IsChecked = this.Settings.KeepPolling;
         }
 
         #region General settings
@@ -256,7 +257,11 @@ namespace KLPlugins.DynLeaderboards.Settings {
             DynLeaderboardsPlugin.Settings.OtherGames = !DynLeaderboardsPlugin.Settings.OtherGames;
         }
 
-        private void SelectedColorChanged<T>(object _, RoutedPropertyChangedEventArgs<Color?> e, T c, Dictionary<T, string> settingsColors) {
+        private void KeepPolling_ToggleButton_Click(object sender, RoutedEventArgs e) {
+            DynLeaderboardsPlugin.Settings.KeepPolling = !DynLeaderboardsPlugin.Settings.KeepPolling;
+        }
+
+        private void SelectedColorChanged<T>(object sender, RoutedPropertyChangedEventArgs<Color?> e, T c, Dictionary<T, string> settingsColors) {
             if (e.NewValue != null) {
                 var newColor = (Color)e.NewValue;
                 settingsColors[c] = newColor.ToString();
@@ -1021,5 +1026,6 @@ namespace KLPlugins.DynLeaderboards.Settings {
                 this.Settings.BroadcastDataUpdateRateMs = (int)e.NewValue;
             }
         }
+
     }
 }

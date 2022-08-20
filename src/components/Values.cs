@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 using ACSharedMemory.ACC.Reader;
 
@@ -64,6 +65,10 @@ namespace KLPlugins.DynLeaderboards {
 
         internal float SessionTimeRemaining = float.NaN;
         internal ACCRawData? RawData { get; private set; }
+
+        private bool _gameIsRunning = false;
+        private DateTime _lastConnectionTime = DateTime.MinValue;
+        private static readonly TimeSpan TIMEOUT_TIME = TimeSpan.FromSeconds(10);
 
         internal Values() {
             this.Cars = new List<CarData>();
@@ -179,6 +184,45 @@ namespace KLPlugins.DynLeaderboards {
         internal void OnDataUpdate(PluginManager _, GameData data) {
             this.RawData = data.NewData.GetRawDataObject() as ACCRawData;
             this.SessionTimeRemaining = this.RawData.Graphics.SessionTimeLeft / 1000.0f;
+        }
+
+        internal void CheckBroadcastClient(PluginManager pm)
+        {
+            //Used when KeepPolling is enabled
+            //We check if the game is running or not, then trigger GameStateChange Accordingly
+            bool cache = false;
+
+            if (pm.LastData.GameRunning)
+            {
+                cache = true;
+            }
+            else
+            {
+                var iter = pm.GetProcesseNames().GetEnumerator();
+                if (iter.MoveNext())
+                    cache = Process.GetProcessesByName(iter.Current)?.Length > 0;
+
+            }
+
+            if (cache != _gameIsRunning)
+            {
+                this.OnGameStateChanged(cache, pm);
+                _gameIsRunning = cache;
+                _lastConnectionTime = DateTime.Now;
+            }
+            else if (_gameIsRunning && BroadcastClient?.IsConnected != true)
+            {
+                if ((DateTime.Now - _lastConnectionTime) > TIMEOUT_TIME)
+                {
+                    _lastConnectionTime = DateTime.Now;
+                    this.OnGameStateChanged(_gameIsRunning, pm);
+                }
+            }
+            else if (BroadcastClient?.IsConnected == true && (DateTime.Now - _lastConnectionTime) > TIMEOUT_TIME)
+            {
+                //We assume the connection has timed out and will reload the broadcast client
+                Reset();
+            }
         }
 
         internal void OnGameStateChanged(bool running, PluginManager _) {
@@ -326,6 +370,7 @@ namespace KLPlugins.DynLeaderboards {
         }
 
         private void OnBroadcastRealtimeUpdate(string sender, RealtimeUpdate update) {
+            _lastConnectionTime = DateTime.Now;
             if (this.Cars.Count == 0) {
                 return;
             }
