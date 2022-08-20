@@ -779,7 +779,7 @@ namespace KLPlugins.DynLeaderboards {
 
         internal void ProcessViaSimHub(GameData data)
         {
-            FocusedCarIdx = data.NewData.Position;
+            FocusedCarIdx = data.NewData.Position - 1;
             Cars.Clear();
 
             CarData ahead = null;

@@ -897,8 +897,8 @@ namespace KLPlugins.DynLeaderboards.Car {
 
             GapToLeader = opponent.GaptoLeader;
             GapToClassLeader = opponent.GaptoLeader;
-            GapToFocusedOnTrack = opponent.GaptoPlayer;
-            GapToFocusedTotal = opponent.GaptoPlayer;
+            GapToFocusedOnTrack = opponent.IsPlayer ? null : opponent.GaptoPlayer;
+            GapToFocusedTotal = GapToFocusedOnTrack;
             //TODO car ahead
 
             OverallPos = opponent.Position;
