@@ -63,7 +63,7 @@ namespace KLPlugins.DynLeaderboards {
                 if (Game.IsAcc) {
                     //WriteFrameTimes(pm);
                     _values.OnDataUpdate(pm, data);
-                } else if (Settings.OtherGames) {
+                } else if (Settings.OtherGames && _values != null) {
                     _values.ProcessViaSimHub(data);
                 }
             }

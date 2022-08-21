@@ -255,6 +255,13 @@ namespace KLPlugins.DynLeaderboards.Settings {
 
         private void OtherGames_ToggleButton_Click(object sender, RoutedEventArgs e) {
             DynLeaderboardsPlugin.Settings.OtherGames = !DynLeaderboardsPlugin.Settings.OtherGames;
+
+            if (!DynLeaderboardsPlugin.Game.IsAcc)
+            {
+                // We need to effectively reload the plugin
+                Plugin.End(Plugin.PluginManager);
+                Plugin.Init(Plugin.PluginManager);
+            }
         }
 
         private void KeepPolling_ToggleButton_Click(object sender, RoutedEventArgs e) {
