@@ -818,6 +818,26 @@ namespace KLPlugins.DynLeaderboards {
         {
             FocusedCarIdx = data.NewData.Position - 1;
 
+            if (TrackData == null || TrackData.TrackName != data.NewData.TrackCode || TrackData.TrackMeters != data.NewData.TrackLength)
+            {
+                TimeSpan span = data.NewData.AllTimeBest;
+                if (span != TimeSpan.Zero)
+                {
+                    // new track
+                    TrackData = new TrackData()
+                    {
+                        TrackId = TrackType.Unknown,
+                        TrackName = data.NewData.TrackCode,
+                        TrackMeters = (float)data.NewData.TrackLength,
+                    };
+
+                    TrackData.LapInterpolators = new CarClassArray<LapInterpolator>(null);
+                    TrackData.LapInterpolators[CarClass.Unknown] = new LapInterpolator(MathNet.Numerics.Interpolation.LinearSpline.InterpolateSorted(new double[] { 0.0, 1.0 }, new double[] { 0.0, span.TotalSeconds }), span.TotalSeconds);
+
+                }
+            }
+
+            //Creating RealtimeUpdate
             RealtimeUpdate realtimeUpdate = new RealtimeUpdate()
             {
                 BestLapCarIndex = 0,
@@ -869,6 +889,7 @@ namespace KLPlugins.DynLeaderboards {
                 }
             }
 
+            //Injecting RealtimeUpdate into RealtimeDate
             if (RealtimeData == null)
             {
                 RealtimeData = new RealtimeData(realtimeUpdate);
@@ -888,6 +909,8 @@ namespace KLPlugins.DynLeaderboards {
                 _relativeSplinePositions.Clear();
                 _startingPositionsSet = false;
                 SessionTimeRemaining = int.MaxValue;
+
+                FocusedCarIdx = data.NewData.Position - 1; //We have to set it again, as ResetPos unassigned it
             }
 
             //Processing all opponents
