@@ -913,6 +913,8 @@ namespace KLPlugins.DynLeaderboards {
                 FocusedCarIdx = data.NewData.Position - 1; //We have to set it again, as ResetPos unassigned it
             }
 
+            
+
             //Processing all opponents
             foreach (var opponent in data.NewData.Opponents)
             {
@@ -969,7 +971,8 @@ namespace KLPlugins.DynLeaderboards {
                     realtimeCarUpdate.WorldPosY = (ushort)arr[2];
                 }
 
-                carData.MissedRealtimeUpdates = 0; //This is to prevent clean up from deleting this one
+                _lastUpdateCarIds.Add(carData.CarIndex);
+                //carData.MissedRealtimeUpdates = 0; //This is to prevent clean up from deleting this one
 
                 carData.OnRealtimeCarUpdate(realtimeCarUpdate, RealtimeData);
             }
