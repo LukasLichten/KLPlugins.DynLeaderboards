@@ -200,8 +200,9 @@ namespace KLPlugins.DynLeaderboards {
             {
                 var iter = pm.GetProcesseNames().GetEnumerator();
                 if (iter.MoveNext())
-                    cache = Process.GetProcessesByName(iter.Current)?.Length > 0;
+                    cache = Process.GetProcessesByName(iter.Current)?.Length > 0; //This operation is really slow (~5ms), maybe do this in parallel?
 
+                //This is only executed when SimHub is in ACC mode, but you are not in a session, however this applies to spectator mode too...
             }
 
             if (cache != _gameIsRunning)
@@ -1002,12 +1003,33 @@ namespace KLPlugins.DynLeaderboards {
                 if (Int32.TryParse(opponent.CarNumber.Replace('#', ' ').Trim(), out int startNumber))
                     info.RaceNumber = startNumber;
 
-                string name = opponent.Name + ' ';
+                string lastname = "";
+                string firstname = "";
+                if (opponent.Name.Contains(' '))
+                {
+                    string[] names = opponent.Name.Replace("  ", " ").Trim().Split(' ');
+
+                    //All name pieces are part of the first name except the last
+                    for (int i = 0; i < (names.Length - 1); i++)
+                    {
+                        firstname += names[i];
+                    }
+
+                    lastname = names[names.Length - 1];
+                }
+                else
+                {
+                    //No spaces in the name, probably some sort of gamertag, which we just pass off as lastnames
+                    //If we passed them off as first names they would be abriviated, meaning you race against 'x.','A.','M.'
+                    //which isn't great
+
+                    lastname = opponent.Name;
+                }
 
                 info.AddDriver(new DriverInfo()
                 {
-                    FirstName = name.Substring(0, name.IndexOf(' ')).Trim(),
-                    LastName = name.Substring(name.IndexOf(' ') + 1).Trim(),
+                    FirstName = firstname,
+                    LastName = lastname,
                     Category = DriverCategory.Platinum,
                     Nationality = NationalityEnum.Any,
                     ShortName = opponent.Initials
