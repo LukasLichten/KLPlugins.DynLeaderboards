@@ -2,9 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Windows.Markup;
 
 using KLPlugins.DynLeaderboards.Car;
 using KLPlugins.DynLeaderboards.Track;
+
+using ksBroadcastingNetwork.Structs;
 
 namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
     internal class BroadcastingNetworkProtocol {
@@ -57,7 +60,7 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
         #region Events
 
         internal delegate void ConnectionStateChangedDelegate(int connectionId, bool connectionSuccess, bool isReadonly, string error);
-        internal delegate void TrackDataUpdateDelegate(string sender, TrackData trackUpdate);
+        internal delegate void TrackDataUpdateDelegate(string sender, Track.TrackData trackUpdate);
         internal delegate void NewEntryListDelegate(string sender);
         internal delegate void EntryListUpdateDelegate(string sender, in CarInfo car);
         internal delegate void RealtimeUpdateDelegate(string sender, RealtimeUpdate update);
@@ -168,9 +171,9 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
                         break;
                     }
                 case InboundMessageTypes.TRACK_DATA: {
-                        var trackData = new TrackData(br);
-                        this._trackSplinePosOffset = trackData.SplinePosOffset;
-                        OnTrackDataUpdate?.Invoke(this._connectionIdentifier, trackData);
+                        var track_Data = new Track.TrackData(br);
+                        this._trackSplinePosOffset = track_Data.SplinePosOffset;
+                        OnTrackDataUpdate?.Invoke(this._connectionIdentifier, track_Data);
                         break;
                     }
                 case InboundMessageTypes.BROADCASTING_EVENT: {
@@ -257,9 +260,9 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
 
             this.CarId = br.ReadUInt16();
             this.DriverIndex = br.ReadUInt16();
-
-            this.Splits = new double?[3];
+            
             var splitCount = br.ReadByte();
+            this.Splits = new double?[splitCount]; //
             for (int i = 0; i < splitCount; i++) {
                 var split = br.ReadInt32();
                 if (split == int.MaxValue) {
@@ -282,6 +285,54 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
             } else {
                 this.Type = LapType.Regular;
             }
+        }
+
+        private LapInfo(TimeSpan lapTime, double?[] sectors, ushort carID) {
+            if (lapTime != TimeSpan.MaxValue) {
+                this.Laptime = lapTime.TotalSeconds;
+            } else {
+                this.Laptime = null;
+            }
+            
+
+            this.Splits = sectors;
+
+            this.CarId = carID;
+            this.DriverIndex = 0;
+
+            this.IsInvalid = false;
+            this.IsValidForBest = true;
+
+            var isOutlap = false;
+            var isInlap = false;
+
+            if (isOutlap) {
+                this.Type = LapType.Outlap;
+            } else if (isInlap) {
+                this.Type = LapType.Inlap;
+            } else {
+                this.Type = LapType.Regular;
+            }
+        }
+
+        internal static LapInfo GetBestLap(GameReaderCommon.Opponent opponent) {
+            if (opponent == null) {
+                return GetEmptyLap();
+            }
+
+            return new LapInfo(opponent.BestLapTime, new double?[] { opponent.BestLapSector1, opponent.BestLapSector2, opponent.BestLapSector3 }, (ushort)opponent.Name.GetHashCode());
+        }
+
+        internal static LapInfo GetLastLap(GameReaderCommon.Opponent opponent) {
+            if (opponent == null) {
+                return GetEmptyLap();
+            }
+
+            return new LapInfo(opponent.LastLapTime, new double?[] { opponent.LastLapSector1, opponent.LastLapSector2, opponent.LastLapSector3 }, (ushort)opponent.Name.GetHashCode());
+        }
+
+        internal static LapInfo GetEmptyLap() {
+            return new LapInfo(TimeSpan.MaxValue, new double?[3], 0);
         }
 
         public override string ToString() {
@@ -332,6 +383,24 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
             }
         }
 
+        internal CarInfo(GameReaderCommon.Opponent opponent) {
+            this.Id = (ushort)opponent.Name.GetHashCode();
+            this.ModelType = CarType.Unknown;
+            this.Class = CarClass.Unknown;
+            this.TeamName = opponent.CarName;
+            this.RaceNumber = 0;
+            this.CupCategory = TeamCupCategory.Overall;
+            this.CurrentDriverIndex = 0;
+            this.TeamNationality = NationalityEnum.Any;
+
+
+            if (Int32.TryParse(opponent.CarNumber.Replace('#', ' ').Trim(), out int startNumber)) {
+                this.RaceNumber = startNumber;
+            }
+
+            this.Drivers = new DriverInfo[] { new DriverInfo(opponent) };
+        }
+
         public string GetCurrentDriverName() {
             if (this.CurrentDriverIndex < this.Drivers.Length) {
                 return this.Drivers[this.CurrentDriverIndex].LastName;
@@ -354,6 +423,33 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
             this.ShortName = BroadcastingNetworkProtocol.ReadString(br);
             this.Category = (DriverCategory)br.ReadByte(); // Platinum = 3, Gold = 2, Silver = 1, Bronze = 0
             this.Nationality = (NationalityEnum)br.ReadUInt16();
+        }
+
+        internal DriverInfo(GameReaderCommon.Opponent opponent) {
+            string lastname = "";
+            string firstname = "";
+            if (opponent.Name.Contains(" ")) {
+                string[] names = opponent.Name.Replace("  ", " ").Trim().Split(' ');
+
+                //All name pieces are part of the first name except the last
+                for (int i = 0; i < (names.Length - 1); i++) {
+                    firstname += names[i];
+                }
+
+                lastname = names[names.Length - 1];
+            } else {
+                //No spaces in the name, probably some sort of gamertag, which we just pass off as lastnames
+                //If we passed them off as first names they would be abriviated, meaning you race against 'x.','A.','M.'
+                //which isn't great
+
+                lastname = opponent.Name;
+            }
+
+            this.FirstName = firstname;
+            this.LastName = lastname;
+            this.Category = DriverCategory.Platinum;
+            this.Nationality = NationalityEnum.Any;
+            this.ShortName = opponent.Initials;
         }
     }
 
@@ -404,6 +500,40 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
             this.BestSessionLap = new LapInfo(br);
             this.LastLap = new LapInfo(br);
             this.CurrentLap = new LapInfo(br);
+            this.IsInPitlane = this.CarLocation == CarLocationEnum.Pitlane;
+            this.IsOnTrack = this.CarLocation == CarLocationEnum.Track;
+        }
+
+        internal RealtimeCarUpdate(GameReaderCommon.Opponent opponent, ushort carID, bool isKmph) {
+            this.CarId = carID;
+            this.DriverIndex = 0; // Driver swap will make this change
+            this.DriverCount = 1;
+            this.Gear = 0;
+            var arr = opponent.Coordinates;
+            if (arr != null && arr.Length == 3) {
+                this.WorldPosX = (ushort)arr[0];
+                this.WorldPosY = (ushort)arr[2];
+            } else {
+                this.WorldPosX = 0;
+                this.WorldPosY = 0;
+            }
+            
+            this.Yaw = 0;
+            this.CarLocation = opponent.IsCarInPitLane ? CarLocationEnum.Pitlane : CarLocationEnum.Track;
+            this.Position = opponent.Position; 
+            this.CupPosition = (ushort)opponent.Position; // TODO: Add Multiclass
+            this.TrackPosition = 0;
+
+            double speed = opponent.Speed != null && opponent.Speed != Double.NaN ? (double)opponent.Speed : 0;
+            this.Kmh = (int)(isKmph ? speed : speed * 1.61);
+
+            this.SplinePosition = opponent.TrackPositionPercent.GetValueOrDefault(0.0); // track position between 0.0 and 1.0
+            this.Laps = opponent.CurrentLap.GetValueOrDefault() - 1;
+
+            this.Delta = 0; // Realtime delta to best session lap
+            this.BestSessionLap = LapInfo.GetBestLap(opponent);
+            this.LastLap = LapInfo.GetLastLap(opponent);
+            this.CurrentLap = LapInfo.GetEmptyLap();
             this.IsInPitlane = this.CarLocation == CarLocationEnum.Pitlane;
             this.IsOnTrack = this.CarLocation == CarLocationEnum.Track;
         }
@@ -464,6 +594,39 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
             this.Wetness = br.ReadByte() / 10.0f;
 
             this.BestSessionLap = new LapInfo(br);
+        }
+
+        internal RealtimeUpdate(RaceSessionType sessionType,
+                                TimeSpan remainingTime,
+                                int focusedCarIndex,
+                                byte ambientTemp,
+                                byte trackTemp,
+                                LapInfo bestLapInfo) {
+
+            this.RecieveTime = DateTime.Now;
+            this.EventIndex = 0;
+            this.SessionIndex = 0;
+            this.SessionType = sessionType;
+            this.Phase = SessionPhase.Session;
+            this.SessionRunningTime = TimeSpan.Zero;
+            this.SessionRemainingTime = remainingTime;
+
+            this.FocusedCarIndex = focusedCarIndex;
+            this.ActiveCameraSet = "";
+            this.ActiveCamera = "";
+            this.CurrentHudPage = "";
+
+            this.IsReplayPlaying = false;
+
+
+            this.SystemTime = this.RecieveTime - new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc); ;
+            this.AmbientTemp = ambientTemp;
+            this.TrackTemp = trackTemp;
+            this.Clouds = 0;
+            this.RainLevel = 0;
+            this.Wetness = 0;
+
+            this.BestSessionLap = bestLapInfo;
         }
     }
 }

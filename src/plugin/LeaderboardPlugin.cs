@@ -84,9 +84,11 @@ namespace KLPlugins.DynLeaderboards {
             var NALCFormulas = (double)pm.GetPropertyValue<SimHub.Plugins.DataPlugins.DataCore.DataCorePlugin>("Performance_NALCFormulasPerSecond");
             var NALCOptFormulas = (double)pm.GetPropertyValue<SimHub.Plugins.DataPlugins.DataCore.DataCorePlugin>("Performance_NALCOptimizedFormulasPerSecond");
 
+#if TIMINGS
             if (_timingWriter != null) {
                 _timingWriter.WriteLine($"{ftime};{cached};{jsFormulas};{NALCFormulas};{NALCOptFormulas}");
             }
+#endif
         }
 
         /// <summary>

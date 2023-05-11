@@ -16,6 +16,7 @@ using KLPlugins.DynLeaderboards.Settings;
 using KLPlugins.DynLeaderboards.Track;
 
 using SimHub.Plugins;
+using SimHub.Plugins.DataPlugins.PersistantTracker;
 
 namespace KLPlugins.DynLeaderboards {
 
@@ -439,7 +440,7 @@ namespace KLPlugins.DynLeaderboards {
                 }
             }
 
-            void SetStartionOrder() {
+            void SetStartingOrder() {
                 Cars.Sort((a, b) => a.NewData.Position.CompareTo(b.NewData.Position)); // Spline position may give wrong results if cars are sitting on the grid, thus NewData.Position
 
                 var classPositions = new CarClassArray<int>(0); // Keep track of what class position are we at the moment
@@ -625,11 +626,11 @@ namespace KLPlugins.DynLeaderboards {
                 }
             }
 
-            /// <summary>
-            /// Update car related data like positions and gaps
-            /// </summary>
-            void UpdateCarData(int FocusedCarIdx, TrackData trackData) {
-                Debug.Assert(this.Cars.Count != 0);
+        /// <summary>
+        /// Update car related data like positions and gaps
+        /// </summary>
+        void UpdateCarData(int FocusedCarIdx, TrackData trackData) {
+            Debug.Assert(this.Cars.Count != 0);
 
                 // Clear old data
                 this._relativeSplinePositions.Clear();
@@ -679,8 +680,7 @@ namespace KLPlugins.DynLeaderboards {
                         overallBestLapCar: overallBestLapCarIdx != null ? this.Cars[(int)overallBestLapCarIdx] : null,
                         classBestLapCar: classBestLapCarIdx != null ? this.Cars[(int)classBestLapCarIdx] : null,
                         overallPos: idxInCars + 1,
-                        classPos: thisCarClassPos,
-                        SessionTimeLeft: this.SessionTimeRemaining
+                        classPos: thisCarClassPos
                     );
                     lastSeenInClassCarIdxs[thisCar.CarClass] = idxInCars;
                 }
@@ -693,7 +693,7 @@ namespace KLPlugins.DynLeaderboards {
             #region Local functions
 
                 void UpdateBestLapCarIdxs(CarData thisCar, int idxInCars) {
-                    var thisCarBestLap = thisCar.NewData?.BestSessionLap?.Laptime;
+                    var thisCarBestLap = thisCar.NewData?.BestSessionLap.Laptime;
                     if (thisCarBestLap != null) {
                         UpdateBestLap(thisCar.CarClass);
                         UpdateBestLap(CarClass.Overall);
@@ -761,7 +761,7 @@ namespace KLPlugins.DynLeaderboards {
             }
 
             #endregion Local functions
-        }
+        
 
         private CarData? GetCarAheadOnTrack(CarData c) {
             // Closest car ahead is the one with smallest positive relative spline position.
@@ -817,95 +817,69 @@ namespace KLPlugins.DynLeaderboards {
 
         internal void ProcessViaSimHub(GameData data)
         {
-            FocusedCarIdx = data.NewData.Position - 1;
+            this.FocusedCarIdx = data.NewData.Position - 1;
 
-            if (TrackData == null || TrackData.TrackName != data.NewData.TrackCode || TrackData.TrackMeters != data.NewData.TrackLength)
+            if (this.TrackData == null || this.TrackData.Name != data.NewData.TrackCode || this.TrackData.LengthMeters != data.NewData.TrackLength)
             {
                 TimeSpan span = data.NewData.AllTimeBest;
                 if (span != TimeSpan.Zero)
                 {
                     // new track
-                    TrackData = new TrackData()
-                    {
-                        TrackId = TrackType.Unknown,
-                        TrackName = data.NewData.TrackCode,
-                        TrackMeters = (float)data.NewData.TrackLength,
-                    };
+                    this.TrackData = new TrackData(data.NewData.TrackCode, (float)data.NewData.TrackLength);
 
-                    TrackData.LapInterpolators = new CarClassArray<LapInterpolator>(null);
-                    TrackData.LapInterpolators[CarClass.Unknown] = new LapInterpolator(MathNet.Numerics.Interpolation.LinearSpline.InterpolateSorted(new double[] { 0.0, 1.0 }, new double[] { 0.0, span.TotalSeconds }), span.TotalSeconds);
+                    this.TrackData.LapInterpolators = new CarClassArray<LapInterpolator>(null);
+                    this.TrackData.LapInterpolators[CarClass.Unknown] = new LapInterpolator(MathNet.Numerics.Interpolation.LinearSpline.InterpolateSorted(new double[] { 0.0, 1.0 }, new double[] { 0.0, span.TotalSeconds }), span.TotalSeconds);
 
                 }
             }
 
             //Creating RealtimeUpdate
-            RealtimeUpdate realtimeUpdate = new RealtimeUpdate()
-            {
-                BestLapCarIndex = 0,
-                BestSessionLap = null,
-                BestLapDriverIndex = 0,
-                FocusedCarIndex = (ushort)data.NewData.PlayerName?.GetHashCode(),
-                EventIndex = 0,
-                SessionIndex = 0,
-                IsReplayPlaying = false,
-                Phase = SessionPhase.Session,
-                RemainingTime = data.NewData.SessionTimeLeft,
-                SessionRemainingTime = data.NewData.SessionTimeLeft,
-                SessionType = RaceSessionType.Practice,
-                AmbientTemp = (byte)data.NewData.AirTemperature,
-                TrackTemp = (byte)data.NewData.RoadTemperature,
-                
-            };
+            string sessionTypeString = data.NewData.SessionTypeName?.Trim()?.ToLower();
+            RaceSessionType sessionType = RaceSessionType.Practice;
 
-            Opponent fastBoi = data.NewData.BestLapOpponent;
-            if (fastBoi != null)
-            {
-                realtimeUpdate.BestLapCarIndex = (ushort)data.NewData.BestLapOpponent.Name.GetHashCode();
-                realtimeUpdate.BestSessionLap = ConvertTimeSpan(data.NewData.BestLapOpponent.BestLapTime);
+            switch (sessionTypeString) {
+                case "race":
+                    sessionType = RaceSessionType.Race;
+                    break;
+                case "qualy":
+                case "qualifying":
+                    sessionType = RaceSessionType.Qualifying;
+                    break;
+                case "hotlap":
+                    sessionType = RaceSessionType.Hotlap;
+                    break;
+                case "practice":
+                    sessionType = RaceSessionType.Practice;
+                    break;
+                default:
+                    break;
             }
-            
 
-            string sessionType = data.NewData.SessionTypeName;
-            if (sessionType != null)
-            {
-                sessionType = sessionType.Trim().ToLower();
-
-                switch (sessionType)
-                {
-                    case "race":
-                        realtimeUpdate.SessionType = RaceSessionType.Race;
-                        break;
-                    case "qualy":
-                    case "qualifying":
-                        realtimeUpdate.SessionType = RaceSessionType.Qualifying;
-                        break;
-                    case "hotlap":
-                        realtimeUpdate.SessionType = RaceSessionType.Hotlap;
-                        break;
-                    case "practice":
-                        realtimeUpdate.SessionType = RaceSessionType.Practice;
-                        break;
-                    default:
-                        break;
-                }
-            }
+            RealtimeUpdate realtimeUpdate = new RealtimeUpdate(
+                sessionType,
+                data.NewData.SessionTimeLeft,
+                (ushort)data.NewData.PlayerName?.GetHashCode(),
+                (byte)data.NewData.AirTemperature,
+                (byte)data.NewData.RoadTemperature,
+                LapInfo.GetBestLap(data.NewData.BestLapOpponent)
+            );
 
             //Injecting RealtimeUpdate into RealtimeDate
-            if (RealtimeData == null)
+            if (this.RealtimeData == null)
             {
-                RealtimeData = new RealtimeData(realtimeUpdate);
+                this.RealtimeData = new RealtimeData(realtimeUpdate);
                 return;
             }
             else
             {
-                RealtimeData.OnRealtimeUpdate(realtimeUpdate);
+                this.RealtimeData.OnRealtimeUpdate(realtimeUpdate);
             }
 
-            if (RealtimeData.IsNewSession)
+            if (this.RealtimeData.IsNewSession)
             {
                 DynLeaderboardsPlugin.LogInfo("New session.");
-                Cars.Clear();
-                ResetPos();
+                this.Cars.Clear();
+                this.ResetPos();
                 _lastUpdateCarIds.Clear();
                 _relativeSplinePositions.Clear();
                 _startingPositionsSet = false;
@@ -919,58 +893,35 @@ namespace KLPlugins.DynLeaderboards {
             //Processing all opponents
             foreach (var opponent in data.NewData.Opponents)
             {
-                CarData carData = Cars.Find(x => x.CarIndex == (ushort)opponent.Name.GetHashCode() && x.CurrentDriver.ShortName == opponent.Initials);
+                CarData carData = this.Cars.Find(x => x.CarIndex == (ushort)opponent.Name.GetHashCode() && x.CurrentDriver.ShortName == opponent.Initials);
 
                 string carName = opponent.CarName;
                 int number = 0;
-                if (Int32.TryParse(opponent.CarNumber.Replace('#', ' ').Trim(), out int startNumber))
+                if (Int32.TryParse(opponent.CarNumber.Replace('#', ' ').Trim(), out int startNumber)) {
                     number = startNumber;
+                }
+                    
 
                 //Making sure we don't need to throw the data out
                 if (carData != null && (carData.TeamName != carName || carData.RaceNumber != number))
                 {
                     //Car was changed, we throw out the old one and create a new one
-                    Cars.Remove(carData);
+                    this.Cars.Remove(carData);
                     carData = null;
                 }
                 
                 //TODO compensate for driverswaps
 
-                if (carData == null)
-                {
-                    carData = MakeNewOpponent(opponent);
+                if (carData == null) {
+                    carData = new CarData(new CarInfo(opponent), null);
+                    this.Cars.Add(carData);
                 }
 
-                RealtimeCarUpdate realtimeCarUpdate = new RealtimeCarUpdate()
-                {
-                    CarIndex = carData.CarIndex,
-                    BestSessionLap = ConvertTimeSpan(opponent.BestLapTime),
-                    CurrentLap = null,
-                    Delta = 0,
-                    CarLocation = opponent.IsCarInPitLane ? CarLocationEnum.Pitlane : CarLocationEnum.Track,
-                    CupPosition = (ushort)opponent.Position,
-                    DriverCount = 1,
-                    DriverIndex = 0,
-                    Gear = 0,
-                    Laps = opponent.CurrentLap.GetValueOrDefault() - 1,
-                    LastLap = ConvertTimeSpan(opponent.LastLapTime),
-                    Position = opponent.Position,
-                    SplinePosition = opponent.TrackPositionPercent.GetValueOrDefault(0.0),
-                    TrackPosition = 0,
-                    Yaw = 0,
-                    WorldPosX = 0,
-                    WorldPosY = 0,
-                };
+                RealtimeCarUpdate realtimeCarUpdate = new RealtimeCarUpdate(opponent, carData.CarIndex, data.NewData.SpeedLocalUnit == "Kmh");
 
-                double speed = opponent.Speed != null && opponent.Speed != Double.NaN ? (double)opponent.Speed : 0;
-                realtimeCarUpdate.Kmh = (int)(data.NewData.SpeedLocalUnit == "Kmh" ? speed : speed * 1.61);
+                
 
-                var arr = opponent.Coordinates;
-                if (arr != null && arr.Length == 3)
-                {
-                    realtimeCarUpdate.WorldPosX = (ushort)arr[0];
-                    realtimeCarUpdate.WorldPosY = (ushort)arr[2];
-                }
+                
 
                 _lastUpdateCarIds.Add(carData.CarIndex);
                 //carData.MissedRealtimeUpdates = 0; //This is to prevent clean up from deleting this one
@@ -978,78 +929,18 @@ namespace KLPlugins.DynLeaderboards {
                 carData.OnRealtimeCarUpdate(realtimeCarUpdate, RealtimeData);
             }
 
-            if (Cars.Count == 0)
+            if (this.Cars.Count == 0) {
                 return;
-
-            ClearMissingCars();
-
-            SetOverallOrder();
-            SetRelativeOrders();
-            UpdateCarData();
-
-            CarData MakeNewOpponent(Opponent opponent)
-            {
-                CarInfo info = new CarInfo((ushort)opponent.Name.GetHashCode())
-                {
-                    CarClass = CarClass.Unknown,
-                    CarModelType = CarType.Unknown,
-                    CupCategory = TeamCupCategory.Overall,
-                    CurrentDriverIndex = 0,
-                    RaceNumber = 0,
-                    Nationality = NationalityEnum.Any,
-                    TeamName = opponent.CarName,
-                };
-
-                if (Int32.TryParse(opponent.CarNumber.Replace('#', ' ').Trim(), out int startNumber))
-                    info.RaceNumber = startNumber;
-
-                string lastname = "";
-                string firstname = "";
-                if (opponent.Name.Contains(' '))
-                {
-                    string[] names = opponent.Name.Replace("  ", " ").Trim().Split(' ');
-
-                    //All name pieces are part of the first name except the last
-                    for (int i = 0; i < (names.Length - 1); i++)
-                    {
-                        firstname += names[i];
-                    }
-
-                    lastname = names[names.Length - 1];
-                }
-                else
-                {
-                    //No spaces in the name, probably some sort of gamertag, which we just pass off as lastnames
-                    //If we passed them off as first names they would be abriviated, meaning you race against 'x.','A.','M.'
-                    //which isn't great
-
-                    lastname = opponent.Name;
-                }
-
-                info.AddDriver(new DriverInfo()
-                {
-                    FirstName = firstname,
-                    LastName = lastname,
-                    Category = DriverCategory.Platinum,
-                    Nationality = NationalityEnum.Any,
-                    ShortName = opponent.Initials
-                });
-
-                CarData carData = new CarData(info, null);
-                Cars.Add(carData);
-
-                return carData;
             }
 
-            LapInfo ConvertTimeSpan(TimeSpan time)
-            {
-                return new LapInfo()
-                {
-                    IsInvalid = false,
-                    Laptime = time.TotalSeconds,
-                    DriverIndex = 0,
-                };
+            this.ClearMissingCars();
+
+            this.SetOverallOrder();
+            this.SetRelativeOrders();
+            if (this.FocusedCarIdx != null) {
+                this.UpdateCarData(this.FocusedCarIdx.Value, this.TrackData);
             }
+            
         }
 
         #endregion

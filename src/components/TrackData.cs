@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Windows.Markup;
 
 using KLPlugins.DynLeaderboards.Car;
 
@@ -36,6 +37,13 @@ namespace KLPlugins.DynLeaderboards.Track {
             this.Id = (TrackType)br.ReadInt32();
             this.LengthMeters = br.ReadInt32();
             this.SplinePosOffset = this.Id.SplinePosOffset();
+        }
+
+        internal TrackData(string name, float length) {
+            this.Id = TrackType.Unknown;
+            this.Name = name;
+            this.LengthMeters = length;
+            this.SplinePosOffset = 0;
         }
 
         /// <summary>
