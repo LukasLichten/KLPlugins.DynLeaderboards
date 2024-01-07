@@ -88,7 +88,14 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
                     break;
                 } catch (SocketException ex) {
                     // Other exceptions
-                    DynLeaderboardsPlugin.LogInfo($"Failed to receive ACC message. Err {ex}.");
+                    if (ex.SocketErrorCode == SocketError.ConnectionReset) {
+                        // Caused by trying to force connection, so we don't log the entire error
+                        DynLeaderboardsPlugin.LogInfo("Failed to connect, shutting down client");
+                        break;
+                    } else {
+                        DynLeaderboardsPlugin.LogInfo($"Failed to receive ACC message. Err {ex}.");
+                    }
+                    
                 } catch (Exception ex) {
                     // Other exceptions
                     DynLeaderboardsPlugin.LogInfo($"Failed to process ACC message. Err {ex}.");

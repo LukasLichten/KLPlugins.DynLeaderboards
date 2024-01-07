@@ -206,6 +206,8 @@ namespace KLPlugins.DynLeaderboards {
                 //This is only executed when SimHub is in ACC mode, but you are not in a session, however this applies to spectator mode too...
             }
 
+            cache = true;
+
             if (cache != _gameIsRunning)
             {
                 this.OnGameStateChanged(cache, pm);
@@ -216,13 +218,18 @@ namespace KLPlugins.DynLeaderboards {
             {
                 if ((DateTime.Now - _lastConnectionTime) > TIMEOUT_TIME)
                 {
-                    _lastConnectionTime = DateTime.Now;
-                    this.OnGameStateChanged(_gameIsRunning, pm);
+                    if (this.BroadcastClient != null) {
+                        this.DisposeBroadcastClient();
+                    } else {
+                        _lastConnectionTime = DateTime.Now;
+                        this.OnGameStateChanged(_gameIsRunning, pm);
+                    }
                 }
             }
             else if (BroadcastClient?.IsConnected == true && (DateTime.Now - _lastConnectionTime) > TIMEOUT_TIME)
             {
                 //We assume the connection has timed out and will reload the broadcast client
+                _lastConnectionTime = DateTime.Now;
                 Reset();
             }
         }

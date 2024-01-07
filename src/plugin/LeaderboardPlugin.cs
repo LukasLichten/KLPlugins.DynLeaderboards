@@ -57,6 +57,10 @@ namespace KLPlugins.DynLeaderboards {
             if (Settings.KeepPolling && Game.IsAcc) {
                 _values.CheckBroadcastClient(pm);
             }
+            if (_values?.RealtimeData?.NewData != null) {
+                var time = _values.RealtimeData.NewData.SessionRemainingTime;
+                pm.SetPropertyValue("SessionTimeRemaining", this.GetType(), time);
+            }
 
 
             if (data.GameRunning && data.OldData != null && data.NewData != null) {
@@ -107,6 +111,8 @@ namespace KLPlugins.DynLeaderboards {
                     File.Delete(fname);
                 }
             }
+
+            
 
             this._values.Dispose();
             if (_logWriter != null) {
@@ -190,6 +196,8 @@ namespace KLPlugins.DynLeaderboards {
             }
 
             this.AttachDelegate("IsBroadcastClientConnected", () => this._values.BroadcastClient?.IsConnected);
+
+            pluginManager.AddProperty("SessionTimeRemaining", this.GetType(), TimeSpan.Zero.GetType());
         }
 
         internal void AddNewLeaderboard(DynLeaderboardConfig s) {
