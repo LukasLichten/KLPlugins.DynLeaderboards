@@ -93,7 +93,8 @@ namespace KLPlugins.DynLeaderboards.Car {
             }
         }
 
-        public T this[E key] => this._data[Convert.ToInt32(key)];
+        public T this[E key] => this._data[Math.Min(this._data.Length-1,Convert.ToInt32(key))];
+        
     }
 
     internal static class CarsMethods {
