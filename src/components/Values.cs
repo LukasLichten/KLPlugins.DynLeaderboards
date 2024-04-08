@@ -236,7 +236,7 @@ namespace KLPlugins.DynLeaderboards {
             }
 
             if (cache != _gameIsRunning) {
-                if (this.BroadcastClient != null) {
+                if (this.BroadcastClient != null && cache) {
                     this.DisposeBroadcastClient();
                 }
 
@@ -304,8 +304,8 @@ namespace KLPlugins.DynLeaderboards {
 
         internal async void DisposeBroadcastClient() {
             if (this.BroadcastClient != null) {
-                await this.BroadcastClient.ShutdownAsync();
-                this.BroadcastClient.Dispose();
+                await this.BroadcastClient?.ShutdownAsync();
+                this.BroadcastClient?.Dispose();
                 this.BroadcastClient = null;
             }
         }
