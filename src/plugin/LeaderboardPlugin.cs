@@ -205,7 +205,11 @@ namespace KLPlugins.DynLeaderboards {
         }
 
         private void SubscribeToSimHubEvents() {
-            PManager.GameStateChanged += this._values.OnGameStateChanged;
+            PManager.GameStateChanged += (bool running, PluginManager pm) => {
+                if (!Settings.AccSpecatorFix && Game.IsAcc) {
+                    this._values?.OnGameStateChanged(running, pm);
+                }
+            };
             PManager.GameStateChanged += (bool running, PluginManager _) => {
                 LogInfo($"GameStateChanged to {running}");
                 if (!running) {
