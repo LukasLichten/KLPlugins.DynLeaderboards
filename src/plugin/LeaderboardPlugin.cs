@@ -502,6 +502,14 @@ namespace KLPlugins.DynLeaderboards {
                 }
                 this._values.SetDynamicCarGetter();
             });
+
+            for (int i = 0; i < l.Settings.Order.Count; i++) {
+                int value = i;
+                this.AddAction($"{l.Settings.Name}.SetTo{l.Settings.Order[i]}", (a, b) => {
+                    l.Settings.CurrentLeaderboardIdx = value;
+                    _values.SetDynamicCarGetter();
+                });
+            }
         }
         int? MaybeBoolToInt(bool? v) {
             if (v == null) {
