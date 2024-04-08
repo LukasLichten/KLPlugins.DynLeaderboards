@@ -55,6 +55,13 @@ namespace KLPlugins.DynLeaderboards {
 #if TIMINGS
             var timer = _timers?.AddAndRestart("DataUpdate");
 #endif
+            if (this._values?.RealtimeData?.NewData != null) {
+                var newData = this._values.RealtimeData.NewData;
+                pm.SetPropertyValue("SessionTimeRemaining", this.GetType(), newData.SessionRemainingTime);
+                pm.SetPropertyValue("SessionType", this.GetType(), newData.SessionType.ToString());
+                pm.SetPropertyValue("AirTemp", this.GetType(), (int)newData.AmbientTemp);
+                pm.SetPropertyValue("TrackTemp", this.GetType(), (int)newData.TrackTemp);
+            }
 
             if (Game.IsAcc && Settings.AccSpecatorFix) {
                 this._values.CheckBroadcastClient(pm);
@@ -176,6 +183,12 @@ namespace KLPlugins.DynLeaderboards {
             }
 
             this.AttachDelegate("IsBroadcastClientConnected", () => this._values.BroadcastClient?.IsConnected);
+
+            // Permanent Temporary Solution
+            pluginManager.AddProperty("SessionTimeRemaining", this.GetType(), TimeSpan.Zero.GetType());
+            pluginManager.AddProperty("SessionType", this.GetType(), string.Empty.GetType());
+            pluginManager.AddProperty("AirTemp", this.GetType(), int.MinValue.GetType());
+            pluginManager.AddProperty("TrackTemp", this.GetType(), int.MinValue.GetType());
         }
 
         internal void AddNewLeaderboard(DynLeaderboardConfig s) {
