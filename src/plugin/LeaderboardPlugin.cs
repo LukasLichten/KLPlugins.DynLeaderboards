@@ -56,6 +56,10 @@ namespace KLPlugins.DynLeaderboards {
             var timer = _timers?.AddAndRestart("DataUpdate");
 #endif
 
+            if (Game.IsAcc && Settings.AccSpecatorFix) {
+                this._values.CheckBroadcastClient(pm);
+            }
+
             if (data.GameRunning && data.OldData != null && data.NewData != null) {
                 this._values.OnDataUpdate(pm, data);
             }

@@ -69,6 +69,10 @@ namespace KLPlugins.DynLeaderboards {
         internal float SessionTimeRemaining = float.NaN;
         internal ACCRawData? RawData { get; private set; }
 
+        private bool _gameIsRunning = false;
+        private DateTime _lastConnectionTime = DateTime.MinValue;
+        private readonly TimeSpan _timeoutTime = TimeSpan.FromSeconds(15);
+
         internal Values() {
             this.Cars = new List<CarData>();
             var num = DynLeaderboardsPlugin.Settings.GetMaxNumClassPos();
@@ -156,6 +160,8 @@ namespace KLPlugins.DynLeaderboards {
             this.SessionEndTimeForBroadcastEventsTime.Reset();
             this._broadcastEvt_realtimeData_sessiontime_diff.Reset();
             this.SessionTimeRemaining = int.MaxValue;
+
+            this._gameIsRunning = false;
         }
 
         private void ResetPos() {
@@ -210,6 +216,46 @@ namespace KLPlugins.DynLeaderboards {
             if (this.TrackData == null && this.RawData.StaticInfo.Track == "nurburgring_24h" && data.NewData.TrackLength != 0) {
                 var trackData = new TrackData(data.NewData.TrackName, TrackType.Nurburgring24h, (float)data.NewData.TrackLength);
                 this.OnTrackDataUpdate("Values", trackData);
+            }
+        }
+
+        internal void CheckBroadcastClient(PluginManager pm) {
+            //Used when KeepPolling is enabled
+            //We check if the game is running or not, then trigger GameStateChange Accordingly
+            bool cache = false;
+
+            if (pm.LastData.GameRunning) {
+                cache = true;
+            } else if (this.BroadcastClient?.IsConnected != true) {
+                var iter = pm.GetProcesseNames().GetEnumerator();
+                if (iter.MoveNext()) {
+                    cache = Process.GetProcessesByName(iter.Current)?.Length > 0; //This operation is really slow (~5ms), maybe do this in parallel?
+                }
+
+                //This is only executed when SimHub is in ACC mode, but you are not in a session, however this applies to spectator mode too...
+            }
+
+            if (cache != _gameIsRunning) {
+                if (this.BroadcastClient != null) {
+                    this.DisposeBroadcastClient();
+                }
+
+                this.OnGameStateChanged(cache, pm);
+                _gameIsRunning = cache;
+                _lastConnectionTime = DateTime.Now;
+            } else if (_gameIsRunning && this.BroadcastClient?.IsConnected != true) {
+                if ((DateTime.Now - _lastConnectionTime) > _timeoutTime) {
+                    if (this.BroadcastClient != null) {
+                        this.DisposeBroadcastClient();
+                    } else {
+                        _lastConnectionTime = DateTime.Now;
+                        this.OnGameStateChanged(_gameIsRunning, pm);
+                    }
+                }
+            } else if (this.BroadcastClient?.IsConnected == true && (DateTime.Now - _lastConnectionTime) > _timeoutTime) {
+                // We assume the connection has timed out and will reload the broadcast client
+                _lastConnectionTime = DateTime.Now;
+                this.Reset();
             }
         }
 
@@ -356,6 +402,7 @@ namespace KLPlugins.DynLeaderboards {
         }
 
         private void OnBroadcastRealtimeUpdate(string sender, RealtimeUpdate update) {
+            _lastConnectionTime = DateTime.Now;
             if (this.Cars.Count == 0) {
                 return;
             }

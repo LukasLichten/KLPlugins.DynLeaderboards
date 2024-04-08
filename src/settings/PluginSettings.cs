@@ -26,6 +26,8 @@ namespace KLPlugins.DynLeaderboards.Settings {
         internal List<DynLeaderboardConfig> DynLeaderboardConfigs { get; set; } = new List<DynLeaderboardConfig>();
         internal string PluginDataLocation { get; set; }
 
+        public bool AccSpecatorFix { get; set; }
+
         public bool Include_ST21_In_GT2 { get; set; }
         public bool Include_CHL_In_GT2 { get; set; }
 

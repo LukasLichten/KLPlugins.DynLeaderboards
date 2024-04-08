@@ -47,7 +47,7 @@ namespace KLPlugins.DynLeaderboards.Settings {
                 this.AddSelectDynLeaderboard_ComboBoxItem(l);
             }
             this.SelectDynLeaderboard_ComboBox.SelectedIndex = 0;
-
+            
             this.AddDynLeaderboardSettings();
             this.AddOtherToggles();
             this.AddColors();
@@ -59,6 +59,8 @@ namespace KLPlugins.DynLeaderboards.Settings {
             this.Logging_ToggleButton.IsChecked = this.Settings.Log;
             this.IncludeST21InGT2_ToggleButton.IsChecked = this.Settings.Include_ST21_In_GT2;
             this.IncludeCHLInGT2_ToggleButton.IsChecked = this.Settings.Include_CHL_In_GT2;
+
+            this.AccSpectatorFix_ToggleButton.IsChecked = this.Settings.AccSpecatorFix;
         }
 
         #region General settings
@@ -259,6 +261,10 @@ namespace KLPlugins.DynLeaderboards.Settings {
 
         private void IncludeCHLInGT2_ToggleButton_Click(object sender, RoutedEventArgs e) {
             DynLeaderboardsPlugin.Settings.Include_CHL_In_GT2 = !DynLeaderboardsPlugin.Settings.Include_CHL_In_GT2;
+        }
+
+        private void AccSpectatorFix_ToggleButton_Click(object sender, RoutedEventArgs e) {
+            DynLeaderboardsPlugin.Settings.AccSpecatorFix = !DynLeaderboardsPlugin.Settings.AccSpecatorFix;
         }
 
         private void SelectedColorChanged<T>(object _, RoutedPropertyChangedEventArgs<Color?> e, T c, Dictionary<T, string> settingsColors) {

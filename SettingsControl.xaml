@@ -172,7 +172,24 @@
                                            VerticalAlignment="Center"
                                            Click="IncludeCHLInGT2_ToggleButton_Click" />
                 </Grid>
-                
+
+                <Grid ToolTip="Keep the Websocket/Data connect when doing a driverswap without setting SimHub to Spectate">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition MaxWidth="500" />
+                        <ColumnDefinition MinWidth="100" />
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition MinHeight="35" />
+                     </Grid.RowDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="ACC Driverswap Fix: " Style="{StaticResource Description}" />
+                     <styles:SHToggleButton Grid.Column="1" x:Name="AccSpectatorFix_ToggleButton"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Click="AccSpectatorFix_ToggleButton_Click"
+                        />
+                </Grid>
+
                 <Separator />
 
                 <styles:SHSectionTitle Text="EXPOSED PROPERTIES" />
