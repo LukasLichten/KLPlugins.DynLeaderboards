@@ -24,6 +24,7 @@
         Indianapolis = 22,
         WatkinsGlen = 23,
         Valencia = 24,
+        Nordschleife = 25,
 
         Unknown = 255
     }

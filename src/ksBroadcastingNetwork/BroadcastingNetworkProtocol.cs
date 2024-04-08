@@ -111,7 +111,15 @@ namespace KLPlugins.DynLeaderboards.ksBroadcastingNetwork {
 
         internal void ProcessMessage(BinaryReader br) {
             // Any message starts with an 1-byte command type
-            var messageType = (InboundMessageTypes)br.ReadByte();
+            var msg = br.ReadByte();
+            var messageType = InboundMessageTypes.REALTIME_UPDATE;
+            try {
+                 messageType = (InboundMessageTypes)msg;
+            } catch {
+                return;
+            }
+            
+
             switch (messageType) {
                 case InboundMessageTypes.REGISTRATION_RESULT: {
                         this.ConnectionId = br.ReadInt32();
