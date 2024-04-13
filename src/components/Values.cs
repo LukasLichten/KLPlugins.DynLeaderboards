@@ -226,7 +226,9 @@ namespace KLPlugins.DynLeaderboards {
 
             if (pm.LastData.GameRunning) {
                 cache = true;
-            } else if (this.BroadcastClient?.IsConnected != true) {
+            } else if (this.BroadcastClient?.IsConnected == true) {
+                cache = true;
+            } else {
                 var iter = pm.GetProcesseNames().GetEnumerator();
                 if (iter.MoveNext()) {
                     cache = Process.GetProcessesByName(iter.Current)?.Length > 0; //This operation is really slow (~5ms), maybe do this in parallel?
